@@ -2,4 +2,4 @@
 host=gerrit.dev
 port=29418
 project=openstack/ceilometer.git
-defaultbranch=stable/kilo
+defaultbranch=dev/kilo
