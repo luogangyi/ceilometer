@@ -1,6 +1,7 @@
 *.egg*
 *.mo
 *.pyc
+*.pyo
 .coverage
 .testrepository
 .tox
@@ -16,3 +17,4 @@ etc/ceilometer/ceilometer.conf*
 subunit.log
 tools/lintstack.head.py
 tools/pylint_exceptions
+.idea/*
