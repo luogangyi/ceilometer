@@ -18,6 +18,7 @@ from lxml import etree
 from oslo_config import cfg
 from oslo_utils import units
 import six
+import time
 
 from ceilometer.compute.pollsters import util
 from ceilometer.compute.virt import inspector as virt_inspector
@@ -25,6 +26,17 @@ from ceilometer.i18n import _
 from ceilometer.openstack.common import log as logging
 
 libvirt = None
+libvirt_qemu = None
+
+CMD_MEMORY = '{"execute":"guest-get-memory-status"}'
+CMD_SYS_INFO = '{"execute":"guest-get-system-info"}'
+CMD_OOM_STATUS = '{"execute":"guest-get-oom-status"}'
+CMD_APP_STATUS = '{"execute":"guest-get-app-status"}'
+CMD_PING_DELAY = '{"execute":"guest-get-ping-delay"}'
+CMD_DISK_STATUS = '{"execute":"guest-get-disk-status"}'
+
+MEM_INFO_CACHE = {}
+DISK_INFO_CACHE = {}
 
 LOG = logging.getLogger(__name__)
 
@@ -76,6 +88,11 @@ class LibvirtInspector(virt_inspector.Inspector):
             global libvirt
             if libvirt is None:
                 libvirt = __import__('libvirt')
+
+            global libvirt_qemu
+            if libvirt_qemu is None:
+                libvirt_qemu = __import__('libvirt_qemu')
+
             LOG.debug(_('Connecting to libvirt: %s'), self.uri)
             self.connection = libvirt.openReadOnly(self.uri)
 
@@ -217,3 +234,63 @@ class LibvirtInspector(virt_inspector.Inspector):
         domain = self._get_domain_not_shut_off_or_raise(instance)
         memory = domain.memoryStats()['rss'] / units.Ki
         return virt_inspector.MemoryResidentStats(resident=memory)
+
+    def inspect_memory_info(self, instance, duration=None):
+        domain = self._get_domain_not_shut_off_or_raise(instance)
+        if instance.id in MEM_INFO_CACHE:
+            info = MEM_INFO_CACHE[instance.id]
+            if time.time() - info['update_at'] < 3.0:
+                return info
+        try:
+            mem_info = libvirt_qemu.qemuAgentCommand(domain, CMD_MEMORY, 2, 0)
+            val = mem_info['return']
+            info = {}
+            info['total'] = val['total']
+            info['used'] = val['used']
+            info['buffer'] = val['buffer']
+            info['cached'] = val['cached']
+            info['swap_total'] = val['swap']['total']
+            info['swap_used'] = val['swap']['used']
+            info['update_at'] = time.time()
+            MEM_INFO_CACHE[instance.id] = info
+            return info
+        except ValueError as e:
+            LOG.info('Cannot decode json, error: %s' % e)
+        except KeyError as e:
+            LOG.info('Cannot get mem info key in result, error: %s' % e)
+        except Exception as e:
+            LOG.info('Cannot get mem info from Gemu-Guest-Agent,'
+                     ' maybe not installed, error: %s' % e)
+        return None
+
+    def inspect_inner_disk_info(self, instance, duration=None):
+        domain = self._get_domain_not_shut_off_or_raise(instance)
+        if instance.id in DISK_INFO_CACHE:
+            info = DISK_INFO_CACHE[instance.id]
+            if time.time() - info['update_at'] < 10.0:
+                return info
+        try:
+            disk_info = libvirt_qemu.qemuAgentCommand(domain,
+                            CMD_DISK_STATUS, 2, 0)
+            vals = disk_info['return']
+            infos = {}
+            mount_infos = []
+            for val in vals:
+                info = {}
+                mount_info = val['mount_info']
+                info['total'] = mount_info['total']
+                info['used'] = mount_info['used']
+                info['writable'] = mount_info['writable']
+                mount_infos.append(info)
+            infos['mount_infos'] = mount_infos
+            infos['update_at'] = time.time()
+            MEM_INFO_CACHE[instance.id] = infos
+            return infos
+        except ValueError as e:
+            LOG.info('Cannot decode json, error: %s' % e)
+        except KeyError as e:
+            LOG.info('Cannot get disk info key in result, error: %s' % e)
+        except Exception as e:
+            LOG.info('Cannot get disk info from Gemu-Guest-Agent,'
+                     ' maybe not installed, error: %s' % e)
+        return None
