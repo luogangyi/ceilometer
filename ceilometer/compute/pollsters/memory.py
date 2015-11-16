@@ -151,7 +151,7 @@ class MemoryUnusedPollster(pollsters.BaseComputePollster):
             LOG.debug(_('Checking memory unused for instance %s'),
                       instance.id)
             try:
-                mem_info = self.inspector.inspect_mem_info(instance)
+                mem_info = self.inspector.inspect_memory_info(instance)
                 if mem_info is None:
                     raise NotImplementedError
                 memory_unused = int(mem_info['total']) - int(mem_info['used'])
@@ -187,7 +187,7 @@ class MemorySwapTotalPollster(pollsters.BaseComputePollster):
             LOG.debug(_('Checking memory swap total for instance %s'),
                       instance.id)
             try:
-                mem_info = self.inspector.inspect_mem_info(instance)
+                mem_info = self.inspector.inspect_memory_info(instance)
                 if mem_info is None:
                     raise NotImplementedError
                 swap_total = int(mem_info['swap_total'])
@@ -223,7 +223,7 @@ class MemorySwapFreePollster(pollsters.BaseComputePollster):
             LOG.debug(_('Checking memory swap free for instance %s'),
                       instance.id)
             try:
-                mem_info = self.inspector.inspect_mem_info(instance)
+                mem_info = self.inspector.inspect_memory_info(instance)
                 if mem_info is None:
                     raise NotImplementedError
                 swap_free = int(mem_info['swap_total']) - \
@@ -260,7 +260,7 @@ class MemoryBufferPollster(pollsters.BaseComputePollster):
             LOG.debug(_('Checking memory buffer for instance %s'),
                       instance.id)
             try:
-                mem_info = self.inspector.inspect_mem_info(instance)
+                mem_info = self.inspector.inspect_memory_info(instance)
                 if mem_info is None:
                     raise NotImplementedError
                 memory_buffer = int(mem_info['buffer'])
@@ -296,7 +296,7 @@ class MemoryCachedPollster(pollsters.BaseComputePollster):
             LOG.debug(_('Checking memory cached for instance %s'),
                       instance.id)
             try:
-                mem_info = self.inspector.inspect_mem_info(instance)
+                mem_info = self.inspector.inspect_memory_info(instance)
                 if mem_info is None:
                     raise NotImplementedError
                 memory_cached = int(mem_info['cached'])
