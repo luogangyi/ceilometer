@@ -15,9 +15,11 @@
 """Implementation of Inspector abstraction for libvirt."""
 
 from lxml import etree
+import json
 from oslo_config import cfg
 from oslo_utils import units
 import six
+import time
 
 from ceilometer.compute.pollsters import util
 from ceilometer.compute.virt import inspector as virt_inspector
@@ -25,6 +27,17 @@ from ceilometer.i18n import _
 from ceilometer.openstack.common import log as logging
 
 libvirt = None
+libvirt_qemu = None
+
+CMD_MEMORY = '{"execute":"guest-get-memory-status"}'
+CMD_SYS_INFO = '{"execute":"guest-get-system-info"}'
+CMD_OOM_STATUS = '{"execute":"guest-get-oom-status"}'
+CMD_APP_STATS = '{"execute":"guest-get-app-status"}'
+CMD_PING_DELAY = '{"execute":"guest-get-ping-delay"}'
+CMD_DISK_STATUS = '{"execute":"guest-get-disk-status"}'
+
+MEM_INFO_CACHE = {}
+DISK_INFO_CACHE = {}
 
 LOG = logging.getLogger(__name__)
 
@@ -76,8 +89,13 @@ class LibvirtInspector(virt_inspector.Inspector):
             global libvirt
             if libvirt is None:
                 libvirt = __import__('libvirt')
+
+            global libvirt_qemu
+            if libvirt_qemu is None:
+                libvirt_qemu = __import__('libvirt_qemu')
+
             LOG.debug(_('Connecting to libvirt: %s'), self.uri)
-            self.connection = libvirt.openReadOnly(self.uri)
+            self.connection = libvirt.open(self.uri)
 
         return self.connection
 
@@ -102,6 +120,13 @@ class LibvirtInspector(virt_inspector.Inspector):
                                  'error_code': error_code,
                                  'ex': ex}
             raise virt_inspector.InstanceNotFoundException(msg)
+
+    def _execute_qemu_cmd(self, domain, cmd, timeout, flag=0):
+        """wrap qemu cmd"""
+        res = libvirt_qemu.qemuAgentCommand(domain, cmd, timeout, flag)
+        # remove non-ascii character
+        res = res.decode('ascii', 'ignore').encode('ascii', 'ignore')
+        return res
 
     def inspect_cpus(self, instance):
         domain = self._lookup_by_uuid(instance)
@@ -217,3 +242,140 @@ class LibvirtInspector(virt_inspector.Inspector):
         domain = self._get_domain_not_shut_off_or_raise(instance)
         memory = domain.memoryStats()['rss'] / units.Ki
         return virt_inspector.MemoryResidentStats(resident=memory)
+
+    def inspect_memory_info(self, instance, duration=None):
+        domain = self._get_domain_not_shut_off_or_raise(instance)
+        if instance.id in MEM_INFO_CACHE:
+            info = MEM_INFO_CACHE[instance.id]
+            if time.time() - info['update_at'] < 3.0:
+                return info
+        try:
+            mem_info = self._execute_qemu_cmd(domain, CMD_MEMORY, 2, 0)
+            json_val = json.loads(mem_info)
+            val = json_val['return']
+            info = {}
+            info['total'] = val['total']
+            info['used'] = val['used']
+            info['buffer'] = val['buffer']
+            info['cached'] = val['cached']
+            info['swap_total'] = val['swap']['total']
+            info['swap_used'] = val['swap']['used']
+            info['update_at'] = time.time()
+            MEM_INFO_CACHE[instance.id] = info
+            return info
+        except ValueError as e:
+            LOG.info('Cannot decode json, error: %s' % e)
+        except KeyError as e:
+            LOG.info('Cannot get mem info key in result, error: %s' % e)
+        except Exception as e:
+            LOG.info('Cannot get mem info from Gemu-Guest-Agent,'
+                     ' maybe not installed, error: %s' % e)
+        return None
+
+    def inspect_inner_disk_info(self, instance, duration=None):
+        domain = self._get_domain_not_shut_off_or_raise(instance)
+        if instance.id in DISK_INFO_CACHE:
+            info = DISK_INFO_CACHE[instance.id]
+            if time.time() - info['update_at'] < 10.0:
+                return info
+        try:
+            disk_info = self._execute_qemu_cmd(domain,
+                                CMD_DISK_STATUS, 2, 0)
+            #remove '\n' first
+            disk_info = disk_info.replace('\n', '')
+            json_val = json.loads(disk_info)
+            vals = json_val['return']
+            infos = {}
+            mount_infos = []
+            for val in vals:
+                info = {}
+                mount_info = val['mount-info']
+                info['mount_point'] = val['mount-place']
+                info['total'] = util.convert_size_to_mb(mount_info['total'])
+                info['used'] = util.convert_size_to_mb(mount_info['used'])
+                info['writable'] = mount_info['writable']
+                mount_infos.append(info)
+            infos['mount_infos'] = mount_infos
+            infos['update_at'] = time.time()
+            DISK_INFO_CACHE[instance.id] = infos
+            return infos
+        except ValueError as e:
+            LOG.info('Cannot decode json, error: %s' % e)
+        except KeyError as e:
+            LOG.info('Cannot get disk info key in result, error: %s' % e)
+        except Exception as e:
+            LOG.info('Cannot get disk info from Gemu-Guest-Agent,'
+                     ' maybe not installed, error: %s' % e)
+        return None
+
+    def inspect_system_info(self, instance, duration=None):
+        domain = self._get_domain_not_shut_off_or_raise(instance)
+        try:
+            sys_info = self._execute_qemu_cmd(domain,
+                                                CMD_SYS_INFO, 2, 0)
+            sys_info = sys_info.replace('\n', '')
+            json_val = json.loads(sys_info)
+            val = json_val['return']
+            return val
+        except ValueError as e:
+            LOG.info('Cannot decode json, error: %s' % e)
+        except KeyError as e:
+            LOG.info('Cannot get sys info key in result, error: %s' % e)
+        except Exception as e:
+            LOG.info('Cannot get sys info from Gemu-Guest-Agent,'
+                     ' maybe not installed, error: %s' % e)
+        return None
+
+    def inspect_oom_status(self, instance, duration=None):
+        domain = self._get_domain_not_shut_off_or_raise(instance)
+        try:
+            sys_info = self._execute_qemu_cmd(domain,
+                                                CMD_OOM_STATUS, 2, 0)
+            sys_info = sys_info.replace('\n', '')
+            json_val = json.loads(sys_info)
+            val = json_val['return']
+            return val['oom-happened']
+        except ValueError as e:
+            LOG.info('Cannot decode json, error: %s' % e)
+        except KeyError as e:
+            LOG.info('Cannot get oom status key in result, error: %s' % e)
+        except Exception as e:
+            LOG.info('Cannot get oom status from Gemu-Guest-Agent,'
+                     ' maybe not installed, error: %s' % e)
+        return None
+
+    def inspect_app_stats(self, instance, duration=None):
+        domain = self._get_domain_not_shut_off_or_raise(instance)
+        try:
+            app_info = self._execute_qemu_cmd(domain,
+                                            CMD_APP_STATS, 2, 0)
+            app_info = app_info.replace('\n', '\\n')
+            app_info = app_info.replace('\t', '\\t')
+            json_val = json.loads(app_info)
+            val = json_val['return']
+            return val['appStatus']
+        except ValueError as e:
+            LOG.info('Cannot decode json, error: %s' % e)
+        except KeyError as e:
+            LOG.info('Cannot get app stats key in result, error: %s' % e)
+        except Exception as e:
+            LOG.info('Cannot get app stats from Gemu-Guest-Agent,'
+                     ' maybe not installed, error: %s' % e)
+        return None
+
+    def inspect_ping_delay(self, instance, duration=None):
+        domain = self._get_domain_not_shut_off_or_raise(instance)
+        try:
+            ping_delay = self._execute_qemu_cmd(domain,
+                                                CMD_PING_DELAY, 2, 0)
+            json_val = json.loads(ping_delay)
+            val = json_val['return']
+            return val['delay']
+        except ValueError as e:
+            LOG.info('Cannot decode json, error: %s' % e)
+        except KeyError as e:
+            LOG.info('Cannot get ping delay key in result, error: %s' % e)
+        except Exception as e:
+            LOG.info('Cannot get ping delay from Gemu-Guest-Agent,'
+                     ' maybe not installed, error: %s' % e)
+        return None

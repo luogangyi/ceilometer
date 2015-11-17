@@ -93,3 +93,24 @@ def make_sample_from_instance(instance, name, type, unit, volume,
 def instance_name(instance):
     """Shortcut to get instance name."""
     return getattr(instance, 'OS-EXT-SRV-ATTR:instance_name', None)
+
+
+def convert_size_to_mb(size):
+    """Convert GB and KB to MB"""
+    size = size.lower()
+    last = size[len(size) - 1]
+    # if last is number, return self
+    if '0' <= last <= '9':
+        return size
+
+    # get number part
+    number = size[:len(size) - 1]
+    number = float(number)
+
+    if size.endswith('t'):
+        number = number * 1024 * 1024
+    elif size.endswith('g'):
+        number = number * 1024
+    elif size.endswith('k'):
+        number = float(number/1024)
+    return number

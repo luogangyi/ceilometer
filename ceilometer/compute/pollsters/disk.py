@@ -811,3 +811,126 @@ class PerDevicePhysicalPollster(_DiskInfoPollsterBase):
                 resource_id="%s-%s" % (instance.id, disk),
             ))
         return samples
+
+
+class DiskTotalPollster(pollsters.BaseComputePollster):
+
+    def get_samples(self, manager, cache, resources):
+        for instance in resources:
+            LOG.debug(_('Checking disk total for instance %s'),
+                      instance.id)
+            try:
+                disk_infos = self.inspector.inspect_inner_disk_info(instance)
+                if disk_infos is None:
+                    raise NotImplementedError
+                for mount_info in disk_infos['mount_infos']:
+                    mount_point = mount_info['mount_point']
+                    total = int(mount_info['total'])
+                    LOG.debug(_("DISK TOTAL: %(instance)s %(total)d"),
+                              ({'instance': instance.__dict__,
+                                'total': total}))
+
+                    yield util.make_sample_from_instance(
+                        instance,
+                        name='disk.total',
+                        type=sample.TYPE_GAUGE,
+                        unit='MB',
+                        volume=total,
+                        resource_id="%s-%s" % (instance.id, mount_point),
+                    )
+            except virt_inspector.InstanceNotFoundException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('Exception while getting samples %s'), err)
+            except NotImplementedError:
+                # Selected inspector does not implement this pollster.
+                LOG.debug(_('Cannot get Disk Total for instance %s, '
+                            'maybe it is not implemented in qemu-guest-agent'
+                            ), instance.id)
+            except Exception as err:
+                LOG.exception(_('Could not get Disk Total for '
+                                '%(id)s: %(e)s'), {'id': instance.id,
+                                                   'e': err})
+
+
+class DiskFreePollster(pollsters.BaseComputePollster):
+
+    def get_samples(self, manager, cache, resources):
+        for instance in resources:
+            LOG.debug(_('Checking disk free for instance %s'),
+                      instance.id)
+            try:
+                disk_infos = self.inspector.inspect_inner_disk_info(instance)
+                if disk_infos is None:
+                    raise NotImplementedError
+                for mount_info in disk_infos['mount_infos']:
+                    mount_point = mount_info['mount_point']
+                    total = int(mount_info['total'])
+                    used = int(mount_info['used'])
+                    free = total - used
+                    LOG.debug(_("DISK FREE: %(instance)s %(free)d"),
+                              ({'instance': instance.__dict__,
+                                'free': free}))
+
+                    yield util.make_sample_from_instance(
+                        instance,
+                        name='disk.free',
+                        type=sample.TYPE_GAUGE,
+                        unit='MB',
+                        volume=used,
+                        resource_id="%s-%s" % (instance.id, mount_point),
+                    )
+            except virt_inspector.InstanceNotFoundException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('Exception while getting samples %s'), err)
+            except NotImplementedError:
+                # Selected inspector does not implement this pollster.
+                LOG.debug(_('Cannot get Disk Free for instance %s, '
+                            'maybe it is not implemented in qemu-guest-agent'
+                            ), instance.id)
+            except Exception as err:
+                LOG.exception(_('Could not get Disk Free for '
+                                '%(id)s: %(e)s'), {'id': instance.id,
+                                                   'e': err})
+
+
+class DiskWritablePollster(pollsters.BaseComputePollster):
+
+    def get_samples(self, manager, cache, resources):
+        for instance in resources:
+            LOG.debug(_('Checking disk writable for instance %s'),
+                      instance.id)
+            try:
+                disk_infos = self.inspector.inspect_inner_disk_info(instance)
+                if disk_infos is None:
+                    raise NotImplementedError
+                for mount_info in disk_infos['mount_infos']:
+                    mount_point = mount_info['mount_point']
+                    if mount_info['writable'] is True:
+                        writable = 1
+                    else:
+                        writable = 0
+                    writable = mount_info['writable']
+                    LOG.debug(_("DISK TOTAL: %(instance)s %(writable)d"),
+                              ({'instance': instance.__dict__,
+                                'writable': writable}))
+
+                    yield util.make_sample_from_instance(
+                        instance,
+                        name='disk.writable',
+                        type=sample.TYPE_GAUGE,
+                        unit='Boolean',
+                        volume=writable,
+                        resource_id="%s-%s" % (instance.id, mount_point),
+                    )
+            except virt_inspector.InstanceNotFoundException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('Exception while getting samples %s'), err)
+            except NotImplementedError:
+                # Selected inspector does not implement this pollster.
+                LOG.debug(_('Cannot get Disk Writable for instance %s, '
+                            'maybe it is not implemented in qemu-guest-agent'
+                            ), instance.id)
+            except Exception as err:
+                LOG.exception(_('Could not get Disk Writable for '
+                                '%(id)s: %(e)s'), {'id': instance.id,
+                                                   'e': err})
