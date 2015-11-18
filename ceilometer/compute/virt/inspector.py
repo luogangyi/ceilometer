@@ -178,6 +178,10 @@ class InstanceShutOffException(InspectorException):
     pass
 
 
+class InstanceNoQGAException(InspectorException):
+    pass
+
+
 class NoDataException(InspectorException):
     pass
 

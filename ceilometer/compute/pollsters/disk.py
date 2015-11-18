@@ -838,6 +838,10 @@ class DiskTotalPollster(pollsters.BaseComputePollster):
                         volume=total,
                         resource_id="%s-%s" % (instance.id, mount_point),
                     )
+            except virt_inspector.InstanceNoQGAException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('QEMU-GUEST-AGENT is not installed or'
+                            ' started in %s'), instance.id)
             except virt_inspector.InstanceNotFoundException as err:
                 # Instance was deleted while getting samples. Ignore it.
                 LOG.debug(_('Exception while getting samples %s'), err)
@@ -879,6 +883,10 @@ class DiskFreePollster(pollsters.BaseComputePollster):
                         volume=used,
                         resource_id="%s-%s" % (instance.id, mount_point),
                     )
+            except virt_inspector.InstanceNoQGAException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('QEMU-GUEST-AGENT is not installed or'
+                            ' started in %s'), instance.id)
             except virt_inspector.InstanceNotFoundException as err:
                 # Instance was deleted while getting samples. Ignore it.
                 LOG.debug(_('Exception while getting samples %s'), err)
@@ -922,6 +930,10 @@ class DiskWritablePollster(pollsters.BaseComputePollster):
                         volume=writable,
                         resource_id="%s-%s" % (instance.id, mount_point),
                     )
+            except virt_inspector.InstanceNoQGAException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('QEMU-GUEST-AGENT is not installed or'
+                            ' started in %s'), instance.id)
             except virt_inspector.InstanceNotFoundException as err:
                 # Instance was deleted while getting samples. Ignore it.
                 LOG.debug(_('Exception while getting samples %s'), err)
