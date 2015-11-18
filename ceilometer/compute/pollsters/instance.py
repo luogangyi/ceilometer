@@ -78,6 +78,10 @@ class InstanceSystemInfoPollster(pollsters.BaseComputePollster):
                     volume=1,
                     additional_metadata=sys_meta,
                 )
+            except virt_inspector.InstanceNoQGAException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('QEMU-GUEST-AGENT is not installed or'
+                            ' started in %s'), instance.id)
             except virt_inspector.InstanceNotFoundException as err:
                 # Instance was deleted while getting samples. Ignore it.
                 LOG.debug(_('Exception while getting samples %s'), err)
@@ -118,6 +122,10 @@ class InstanceOOMStatusPollster(pollsters.BaseComputePollster):
                     unit='instance',
                     volume=oom_status,
                 )
+            except virt_inspector.InstanceNoQGAException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('QEMU-GUEST-AGENT is not installed or'
+                            ' started in %s'), instance.id)
             except virt_inspector.InstanceNotFoundException as err:
                 # Instance was deleted while getting samples. Ignore it.
                 LOG.debug(_('Exception while getting samples %s'), err)
@@ -157,6 +165,10 @@ class InstanceAppStatsPollster(pollsters.BaseComputePollster):
                     volume=1,
                     additional_metadata=app_meta,
                 )
+            except virt_inspector.InstanceNoQGAException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('QEMU-GUEST-AGENT is not installed or'
+                            ' started in %s'), instance.id)
             except virt_inspector.InstanceNotFoundException as err:
                 # Instance was deleted while getting samples. Ignore it.
                 LOG.debug(_('Exception while getting samples %s'), err)
@@ -201,6 +213,10 @@ class InstancePingDelayPollster(pollsters.BaseComputePollster):
                     unit='instance',
                     volume=delay,
                 )
+            except virt_inspector.InstanceNoQGAException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('QEMU-GUEST-AGENT is not installed or'
+                            ' started in %s'), instance.id)
             except virt_inspector.InstanceNotFoundException as err:
                 # Instance was deleted while getting samples. Ignore it.
                 LOG.debug(_('Exception while getting samples %s'), err)

@@ -147,6 +147,14 @@ class LibvirtInspector(virt_inspector.Inspector):
 
         return domain
 
+    def _is_enable_qga_or_raise(self, instance):
+        enabled = False
+        if getattr(instance, 'hw_qemu_guest_agent', 'no') == 'yes':
+            enabled = True
+
+        if not enabled:
+            raise virt_inspector.InstanceNoQGAException
+
     def inspect_vnics(self, instance):
         domain = self._get_domain_not_shut_off_or_raise(instance)
 
@@ -244,6 +252,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         return virt_inspector.MemoryResidentStats(resident=memory)
 
     def inspect_memory_info(self, instance, duration=None):
+        self._is_enable_qga_or_raise(instance)
         domain = self._get_domain_not_shut_off_or_raise(instance)
         if instance.id in MEM_INFO_CACHE:
             info = MEM_INFO_CACHE[instance.id]
@@ -273,6 +282,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         return None
 
     def inspect_inner_disk_info(self, instance, duration=None):
+        self._is_enable_qga_or_raise(instance)
         domain = self._get_domain_not_shut_off_or_raise(instance)
         if instance.id in DISK_INFO_CACHE:
             info = DISK_INFO_CACHE[instance.id]
@@ -309,6 +319,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         return None
 
     def inspect_system_info(self, instance, duration=None):
+        self._is_enable_qga_or_raise(instance)
         domain = self._get_domain_not_shut_off_or_raise(instance)
         try:
             sys_info = self._execute_qemu_cmd(domain,
@@ -327,6 +338,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         return None
 
     def inspect_oom_status(self, instance, duration=None):
+        self._is_enable_qga_or_raise(instance)
         domain = self._get_domain_not_shut_off_or_raise(instance)
         try:
             sys_info = self._execute_qemu_cmd(domain,
@@ -345,6 +357,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         return None
 
     def inspect_app_stats(self, instance, duration=None):
+        self._is_enable_qga_or_raise(instance)
         domain = self._get_domain_not_shut_off_or_raise(instance)
         try:
             app_info = self._execute_qemu_cmd(domain,
@@ -364,6 +377,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         return None
 
     def inspect_ping_delay(self, instance, duration=None):
+        self._is_enable_qga_or_raise(instance)
         domain = self._get_domain_not_shut_off_or_raise(instance)
         try:
             ping_delay = self._execute_qemu_cmd(domain,

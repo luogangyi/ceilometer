@@ -126,7 +126,8 @@ class Client(object):
             cache[iid] = image
 
         attr_defaults = [('kernel_id', None),
-                         ('ramdisk_id', None)]
+                         ('ramdisk_id', None),
+                         ('hw_qemu_guest_agent', 'no')]
 
         instance.image['name'] = (
             getattr(image, 'name') if image else 'unknown-id-%s' % iid)
