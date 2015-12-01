@@ -174,6 +174,7 @@ class PerDeviceReadRequestsPollster(_Base):
                 unit='request',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -207,6 +208,7 @@ class PerDeviceReadBytesPollster(_Base):
                 unit='B',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -240,6 +242,7 @@ class PerDeviceWriteRequestsPollster(_Base):
                 unit='request',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -273,6 +276,7 @@ class PerDeviceWriteBytesPollster(_Base):
                 unit='B',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -379,6 +383,7 @@ class PerDeviceReadBytesRatePollster(_DiskRatesPollsterBase):
                 unit='B/s',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -411,6 +416,7 @@ class PerDeviceReadRequestsRatePollster(_DiskRatesPollsterBase):
                 unit='requests/s',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -443,6 +449,7 @@ class PerDeviceWriteBytesRatePollster(_DiskRatesPollsterBase):
                 unit='B/s',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -475,6 +482,7 @@ class PerDeviceWriteRequestsRatePollster(_DiskRatesPollsterBase):
                 unit='requests/s',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -557,7 +565,8 @@ class PerDeviceDiskLatencyPollster(_DiskLatencyPollsterBase):
                 type=sample.TYPE_GAUGE,
                 unit='ms',
                 volume=value / 1000,
-                resource_id="%s-%s" % (instance.id, disk)
+                resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -638,7 +647,8 @@ class PerDeviceDiskIOPSPollster(_DiskIOPSPollsterBase):
                 type=sample.TYPE_GAUGE,
                 unit='count/s',
                 volume=value,
-                resource_id="%s-%s" % (instance.id, disk)
+                resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -745,6 +755,7 @@ class PerDeviceCapacityPollster(_DiskInfoPollsterBase):
                 unit='B',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -777,6 +788,7 @@ class PerDeviceAllocationPollster(_DiskInfoPollsterBase):
                 unit='B',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -809,6 +821,7 @@ class PerDevicePhysicalPollster(_DiskInfoPollsterBase):
                 unit='B',
                 volume=value,
                 resource_id="%s-%s" % (instance.id, disk),
+                additional_metadata={'disk_name': disk},
             ))
         return samples
 
@@ -837,6 +850,7 @@ class DiskTotalPollster(pollsters.BaseComputePollster):
                         unit='MB',
                         volume=total,
                         resource_id="%s-%s" % (instance.id, mount_point),
+                        additional_metadata={'disk_name': mount_point},
                     )
             except virt_inspector.InstanceNoQGAException as err:
                 # Instance was deleted while getting samples. Ignore it.
@@ -882,6 +896,7 @@ class DiskFreePollster(pollsters.BaseComputePollster):
                         unit='MB',
                         volume=used,
                         resource_id="%s-%s" % (instance.id, mount_point),
+                        additional_metadata={'disk_name': mount_point},
                     )
             except virt_inspector.InstanceNoQGAException as err:
                 # Instance was deleted while getting samples. Ignore it.
@@ -929,6 +944,7 @@ class DiskWritablePollster(pollsters.BaseComputePollster):
                         unit='Boolean',
                         volume=writable,
                         resource_id="%s-%s" % (instance.id, mount_point),
+                        additional_metadata={'disk_name': mount_point},
                     )
             except virt_inspector.InstanceNoQGAException as err:
                 # Instance was deleted while getting samples. Ignore it.
@@ -944,5 +960,57 @@ class DiskWritablePollster(pollsters.BaseComputePollster):
                             ), instance.id)
             except Exception as err:
                 LOG.exception(_('Could not get Disk Writable for '
+                                '%(id)s: %(e)s'), {'id': instance.id,
+                                                   'e': err})
+
+
+class DiskPercentPollster(pollsters.BaseComputePollster):
+
+    def get_samples(self, manager, cache, resources):
+        for instance in resources:
+            LOG.debug(_('Checking disk used percent for instance %s'),
+                      instance.id)
+            try:
+                disk_infos = self.inspector.inspect_inner_disk_info(instance)
+                if disk_infos is None:
+                    raise NotImplementedError
+                for mount_info in disk_infos['mount_infos']:
+                    mount_point = mount_info['mount_point']
+                    total = int(mount_info['total'])
+                    used = int(mount_info['used'])
+                    free = total - used
+                    percent = 0
+                    try:
+                        percent = float(free) / float(total)
+                    except:
+                        LOG.debug("Disk Total of instance %s is 0, "
+                                  "set used percent to 0" % instance.id)
+                    LOG.debug(_("DISK USED PERCENT: %(instance)s %(free)d"),
+                              ({'instance': instance.__dict__,
+                                'percent': percent}))
+
+                    yield util.make_sample_from_instance(
+                        instance,
+                        name='disk.percent',
+                        type=sample.TYPE_GAUGE,
+                        unit='%',
+                        volume=percent * 100,
+                        resource_id="%s-%s" % (instance.id, mount_point),
+                        additional_metadata={'disk_name': mount_point},
+                    )
+            except virt_inspector.InstanceNoQGAException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('QEMU-GUEST-AGENT is not installed or'
+                            ' started in %s'), instance.id)
+            except virt_inspector.InstanceNotFoundException as err:
+                # Instance was deleted while getting samples. Ignore it.
+                LOG.debug(_('Exception while getting samples %s'), err)
+            except NotImplementedError:
+                # Selected inspector does not implement this pollster.
+                LOG.debug(_('Cannot get Disk Used Percent for instance %s, '
+                            'maybe it is not implemented in qemu-guest-agent'
+                            ), instance.id)
+            except Exception as err:
+                LOG.exception(_('Could not get Disk Used Percent for '
                                 '%(id)s: %(e)s'), {'id': instance.id,
                                                    'e': err})
