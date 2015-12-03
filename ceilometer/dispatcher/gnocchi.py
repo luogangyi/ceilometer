@@ -28,7 +28,7 @@ from stevedore import extension
 
 from ceilometer import declarative
 from ceilometer import dispatcher
-from nova.openstack.common import memorycache
+from ceilometer.openstack.common import memorycache
 from ceilometer.dispatcher import gnocchi_client
 from ceilometer.i18n import _, _LE, _LW
 from ceilometer import keystone_client
