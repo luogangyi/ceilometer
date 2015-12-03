@@ -14,7 +14,7 @@
 # under the License.
 
 import socket
-
+import eventlet
 import msgpack
 import oslo.messaging
 from oslo_config import cfg
@@ -76,6 +76,7 @@ class CollectorService(os_service.Service):
 
         if cfg.CONF.collector.udp_address:
             self.tg.add_thread(self.start_udp)
+            self.tg.add_thread(self.start_tcp)
 
         transport = messaging.get_transport(optional=True)
         if transport:
@@ -132,6 +133,25 @@ class CollectorService(os_service.Service):
                                                        sample)
                 except Exception:
                     LOG.exception(_("UDP: Unable to store meter"))
+
+    def start_udp(self):
+        address_family = socket.AF_INET
+        if netutils.is_valid_ipv6(cfg.CONF.collector.udp_address):
+            address_family = socket.AF_INET6
+        tcp = socket.socket(address_family, socket.SOCK_STREAM)
+        tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # use the same port of udp
+        # this is only used for lvs check.
+        while self.udp_run:
+            try:
+                tcp.bind((cfg.CONF.collector.udp_address,
+                          cfg.CONF.collector.udp_port))
+                tcp.listen(64)
+                while self.udp_run:
+                    sock, addr = tcp.accept()
+                    data = sock.recv(8)
+            except:
+                eventlet.sleep(5)
 
     def stop(self):
         self.udp_run = False
