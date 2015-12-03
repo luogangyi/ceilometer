@@ -312,8 +312,8 @@ class GnocchiDispatcher(dispatcher.Base):
                             cache_key, resource)
                         if attribute_hash:
                             self._gnocchi.update_resource(resource_type,
-                                                          resource_id,
-                                                          resource_extra)
+                                                            resource_id,
+                                                            resource_extra)
                             self.cache.set(cache_key, attribute_hash, 3600)
                         else:
                             LOG.debug('recheck resource cache hit for '

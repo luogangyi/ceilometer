@@ -103,12 +103,17 @@ resources:
       - 'disk.device.capacity'
       - 'disk.device.allocation'
       - 'disk.device.usage'
+    attributes:
+      name: resource_metadata.disk_name
+      instance_id: resource_metadata.instance_id
+  - resource_type: instance_mountpoint
+    metrics:
       - "disk.total"
       - "disk.free"
       - "disk.writable"
       - "disk.percent"
     attributes:
-      name: resource_metadata.disk_name
+      name: resource_metadata.mount_point
       instance_id: resource_metadata.instance_id
   - resource_type: image
     metrics:

@@ -14,6 +14,7 @@
 # under the License.
 """Implementation of Inspector abstraction for libvirt."""
 
+import base64
 from lxml import etree
 import json
 from oslo_config import cfg
@@ -259,7 +260,7 @@ class LibvirtInspector(virt_inspector.Inspector):
             if time.time() - info['update_at'] < 3.0:
                 return info
         try:
-            mem_info = self._execute_qemu_cmd(domain, CMD_MEMORY, 2, 0)
+            mem_info = self._execute_qemu_cmd(domain, CMD_MEMORY, 5, 0)
             json_val = json.loads(mem_info)
             val = json_val['return']
             info = {}
@@ -301,6 +302,8 @@ class LibvirtInspector(virt_inspector.Inspector):
                 info = {}
                 mount_info = val['mount-info']
                 info['mount_point'] = val['mount-place']
+                info['mount_point_encoded'] = \
+                    val['mount-place'].replace('/', '@')
                 info['total'] = util.convert_size_to_mb(mount_info['total'])
                 info['used'] = util.convert_size_to_mb(mount_info['used'])
                 info['writable'] = mount_info['writable']
@@ -323,7 +326,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         domain = self._get_domain_not_shut_off_or_raise(instance)
         try:
             sys_info = self._execute_qemu_cmd(domain,
-                                                CMD_SYS_INFO, 2, 0)
+                                                CMD_SYS_INFO, 5, 0)
             sys_info = sys_info.replace('\n', '')
             json_val = json.loads(sys_info)
             val = json_val['return']
@@ -342,7 +345,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         domain = self._get_domain_not_shut_off_or_raise(instance)
         try:
             sys_info = self._execute_qemu_cmd(domain,
-                                                CMD_OOM_STATUS, 2, 0)
+                                                CMD_OOM_STATUS, 5, 0)
             sys_info = sys_info.replace('\n', '')
             json_val = json.loads(sys_info)
             val = json_val['return']
@@ -361,7 +364,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         domain = self._get_domain_not_shut_off_or_raise(instance)
         try:
             app_info = self._execute_qemu_cmd(domain,
-                                            CMD_APP_STATS, 2, 0)
+                                            CMD_APP_STATS, 5, 0)
             app_info = app_info.replace('\n', '\\n')
             app_info = app_info.replace('\t', '\\t')
             json_val = json.loads(app_info)
@@ -381,7 +384,7 @@ class LibvirtInspector(virt_inspector.Inspector):
         domain = self._get_domain_not_shut_off_or_raise(instance)
         try:
             ping_delay = self._execute_qemu_cmd(domain,
-                                                CMD_PING_DELAY, 2, 0)
+                                                CMD_PING_DELAY, 10, 0)
             json_val = json.loads(ping_delay)
             val = json_val['return']
             return val['delay']

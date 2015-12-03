@@ -849,8 +849,9 @@ class DiskTotalPollster(pollsters.BaseComputePollster):
                         type=sample.TYPE_GAUGE,
                         unit='MB',
                         volume=total,
-                        resource_id="%s-%s" % (instance.id, mount_point),
-                        additional_metadata={'disk_name': mount_point},
+                        resource_id="%s-%s" % (instance.id,
+                                               mount_info['mount_point_encoded']),
+                        additional_metadata={'mount_point': mount_point},
                     )
             except virt_inspector.InstanceNoQGAException as err:
                 # Instance was deleted while getting samples. Ignore it.
@@ -895,8 +896,9 @@ class DiskFreePollster(pollsters.BaseComputePollster):
                         type=sample.TYPE_GAUGE,
                         unit='MB',
                         volume=used,
-                        resource_id="%s-%s" % (instance.id, mount_point),
-                        additional_metadata={'disk_name': mount_point},
+                        resource_id="%s-%s" % (instance.id,
+                                               mount_info['mount_point_encoded']),
+                        additional_metadata={'mount_point': mount_point},
                     )
             except virt_inspector.InstanceNoQGAException as err:
                 # Instance was deleted while getting samples. Ignore it.
@@ -943,8 +945,9 @@ class DiskWritablePollster(pollsters.BaseComputePollster):
                         type=sample.TYPE_GAUGE,
                         unit='Boolean',
                         volume=writable,
-                        resource_id="%s-%s" % (instance.id, mount_point),
-                        additional_metadata={'disk_name': mount_point},
+                        resource_id="%s-%s" % (instance.id,
+                                               mount_info['mount_point_encoded']),
+                        additional_metadata={'mount_point': mount_point},
                     )
             except virt_inspector.InstanceNoQGAException as err:
                 # Instance was deleted while getting samples. Ignore it.
@@ -995,8 +998,9 @@ class DiskPercentPollster(pollsters.BaseComputePollster):
                         type=sample.TYPE_GAUGE,
                         unit='%',
                         volume=percent * 100,
-                        resource_id="%s-%s" % (instance.id, mount_point),
-                        additional_metadata={'disk_name': mount_point},
+                        resource_id="%s-%s" % (instance.id,
+                                               mount_info['mount_point_encoded']),
+                        additional_metadata={'mount_point': mount_point},
                     )
             except virt_inspector.InstanceNoQGAException as err:
                 # Instance was deleted while getting samples. Ignore it.

@@ -267,7 +267,6 @@ class Client(object):
         if r.status_code == 409:
             LOG.debug("Resource %s already exists", resource['id'])
             raise ResourceAlreadyExists
-
         elif r.status_code // 100 != 2:
             raise UnexpectedError(
                 _("Resource %(resource_id)s creation failed with "
