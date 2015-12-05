@@ -13,6 +13,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from keystoneclient import exceptions as ks_exceptions
 from oslo_config import cfg
 
 from ceilometer.agent import base
@@ -40,13 +41,34 @@ class AgentManager(base.AgentManager):
     def __init__(self, namespaces=None, pollster_list=None):
         namespaces = namespaces or ['compute', 'central']
         pollster_list = pollster_list or []
+        self._keystone = None
+        self._keystone_last_exception = None
         super(AgentManager, self).__init__(
             namespaces, pollster_list,
             group_prefix=cfg.CONF.polling.partitioning_group_prefix)
 
     def interval_task(self, task):
-        try:
-            self.keystone = keystone_client.get_client()
-        except Exception as e:
-            self.keystone = e
+        # NOTE(sileht): remove the previous keystone client
+        # and exception to get a new one in this polling cycle.
+        self._keystone = None
+        self._keystone_last_exception = None
+
         super(AgentManager, self).interval_task(task)
+
+    @property
+    def keystone(self):
+        # NOTE(sileht): we do lazy loading of the keystone client
+        # for multiple reasons:
+        # * don't use it if no plugin need it
+        # * use only one client for all plugins per polling cycle
+        if self._keystone is None and self._keystone_last_exception is None:
+            try:
+                self._keystone = keystone_client.get_client()
+                self._keystone_last_exception = None
+            except ks_exceptions.ClientException as e:
+                self._keystone = None
+                self._keystone_last_exception = e
+        if self._keystone is not None:
+            return self._keystone
+        else:
+            raise self._keystone_last_exception

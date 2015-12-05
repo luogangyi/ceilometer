@@ -25,7 +25,7 @@ OPTS = [
                 help='Enable work-load partitioning, allowing multiple '
                      'compute agents to be run simultaneously.'),
     cfg.IntOpt('instance_query_period',
-               default=60,
+               default=120,
                help='period to query instance info through'
                     'nova client'),
 ]
