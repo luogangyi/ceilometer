@@ -15,6 +15,7 @@ import functools
 
 import novaclient
 from novaclient import client as nova_client
+from cinderclient.v1 import client as cinder_client
 from oslo_config import cfg
 
 from ceilometer.openstack.common import log
@@ -77,12 +78,26 @@ class Client(object):
             http_log_debug=cfg.CONF.nova_http_log_debug,
             no_cache=True)
 
+        self.cinder_client = cinder_client.Client(
+            version=2,
+            username=conf.os_username,
+            api_key=conf.os_password,
+            project_id=tenant,
+            auth_url=conf.os_auth_url,
+            auth_token=auth_token,
+            region_name=conf.os_region_name,
+            endpoint_type=conf.os_endpoint_type,
+            service_type='volume',
+            timeout=cfg.CONF.http_timeout,
+            no_cache=True)
+
     def _with_flavor_and_image(self, instances):
         flavor_cache = {}
         image_cache = {}
         for instance in instances:
             self._with_flavor(instance, flavor_cache)
             self._with_image(instance, image_cache)
+            self._with_volume(instance, image_cache)
 
         return instances
 
@@ -136,6 +151,24 @@ class Client(object):
         for attr, default in attr_defaults:
             ameta = image_metadata.get(attr) if image_metadata else default
             setattr(instance, attr, ameta)
+
+    def _with_volume(self, instance, cache):
+        try:
+            volume_infos = getattr(instance, 'os-extended-volumes:volumes_attached')
+            for volume_info in volume_infos:
+                vid = volume_info['id']
+                volume = self.cinder_client.volumes.get(vid)
+                volume_image_metadata = getattr(volume, 'volume_image_metadata', None)
+                attachments = getattr(volume, 'attachments', None)
+                if attachments and volume_image_metadata and \
+                     attachments[0]['device'] == u'/dev/vda':
+                    image_id = volume_image_metadata['image_id']
+                    image_dict = {'id': image_id}
+                    setattr(instance, 'image', image_dict)
+                    self._with_image(instance, cache)
+        except Exception as e:
+            LOG.debug(e)
+            return
 
     @logged
     def instance_get_all_by_host(self, hostname, since=None):
