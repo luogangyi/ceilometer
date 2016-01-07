@@ -63,7 +63,11 @@ class InstanceDiscovery(plugin_base.DiscoveryBase):
                     self.instances[instance.id] = instance
             self.last_run = timeutils.utcnow()
 
-        return self.instances.values()
+        running_instances = []
+        for instance in self.instances.values():
+            if getattr(instance, 'OS-EXT-STS:vm_state', None) == "active":
+                running_instances.append(instance)
+        return running_instances
 
     @property
     def group_id(self):
