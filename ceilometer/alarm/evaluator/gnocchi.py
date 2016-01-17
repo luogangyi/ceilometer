@@ -44,7 +44,7 @@ OPTS = [
                help='URL to Gnocchi.'),
 ]
 
-cfg.CONF.register_opts(OPTS, group="alarms")
+cfg.CONF.register_opts(OPTS, group="alarm")
 cfg.CONF.import_opt('http_timeout', 'ceilometer.service')
 
 
@@ -60,7 +60,7 @@ class GnocchiThresholdEvaluator(evaluator.Evaluator):
 
     def __init__(self, notifier):
         super(GnocchiThresholdEvaluator, self).__init__(notifier)
-        self.gnocchi_url = cfg.CONF.alarms.gnocchi_url
+        self.gnocchi_url = cfg.CONF.alarm.gnocchi_url
         self._ks_client = None
 
     @property

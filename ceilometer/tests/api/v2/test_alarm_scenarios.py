@@ -2521,7 +2521,7 @@ class TestAlarms(v2.FunctionalTest,
                         ) as gnocchi_get:
             self.post_json('/alarms', params=json, headers=self.auth_headers)
 
-            gnocchi_url = self.CONF.alarms.gnocchi_url
+            gnocchi_url = self.CONF.alarm.gnocchi_url
             capabilities_url = urlparse.urljoin(gnocchi_url,
                                                 '/v1/capabilities')
             resource_url = urlparse.urljoin(
